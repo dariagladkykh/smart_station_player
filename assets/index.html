@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Station</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+<header>
+    <nav>
+        <h1>Smart Station</h1>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/assets/about.html">About</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <h2>Smart Station Dashboard</h2>
+        <p>Ambient-aware music controller with binary clock and light sensor</p>
+    </section>
+
+    <section class="clock-data">
+        <h2>Binary Clock Readings</h2>
+        <div id="clock-container" class="loading"></div>
+    </section>
+
+    <section class="sensor-data">
+        <h2>Light Sensor Readings</h2>
+        <div id="sensor-container" class="loading"></div>
+    </section>
+
+    <section class="audio-files">
+        <h2>Audio Playback</h2>
+        <ul>
+            <li><audio controls><source src="/assets/audio/audio1.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio> Frederic Shopen - Nocturne no9</li>
+            <li><audio controls><source src="/assets/audio/audio2.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio> Cat Stevens – Wild World</li>
+            <li><audio controls><source src="/assets/audio/audio3.mp3.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio> The Beatles – Let It Be</li>
+            <li><audio controls><source src="/assets/audio/audio4.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio> Gloria Gaynor – I Will Survive</li>
+            <li><audio controls><source src="/assets/audio/audio5.mp3" type="audio/mpeg">Your browser does not support the audio element.</audio> Queen – I Want To Break Free</li>
+        </ul>
+    </section>
+</main>
+
+<footer>
+    <p>© 2025 Smart Station · Designed by Daria Gladkykh</p>
+</footer>
+
+<script>
+    async function fetchClockData() {
+        try {
+            const container = document.getElementById('clock-container');
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const response = await fetch('/api/clock');
+            const data = await response.json();
+
+            if (data.length === 0) {
+                container.classList.remove('loading');
+                container.innerHTML = '<div class="no-data-message">No clock data available yet.</div>';
+                return;
+            }
+
+            let html = '<table class="clock-table">';
+            html += '<thead><tr><th>Date</th><th>Time</th><th>Binary Minutes</th><th>Binary Seconds</th></tr></thead><tbody>';
+
+            data.forEach(item => {
+                const date = new Date(item.timestamp);
+                const dateStr = date.toLocaleDateString();
+                const timeStr = date.toLocaleTimeString();
+
+                html += `<tr>
+                        <td>${dateStr}</td>
+                        <td>${item.time}</td>
+                        <td>${item.minutes_binary}</td>
+                        <td>${item.seconds_binary}</td>
+                    </tr>`;
+            });
+
+            html += '</tbody></table>';
+
+            container.classList.remove('loading');
+            container.style.opacity = 0;
+            container.innerHTML = html;
+
+            setTimeout(() => {
+                container.style.transition = 'opacity 0.5s ease';
+                container.style.opacity = 1;
+            }, 50);
+        } catch (error) {
+            console.error('Error fetching clock data:', error);
+            const container = document.getElementById('clock-container');
+            container.classList.remove('loading');
+            container.innerHTML = '<div class="error-message">Unable to load clock data. Please try again later.</div>';
+        }
+    }
+
+    async function fetchSensorData() {
+        try {
+            const container = document.getElementById('sensor-container');
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            const response = await fetch('/api/sensor');
+            const data = await response.json();
+
+            if (data.length === 0) {
+                container.classList.remove('loading');
+                container.innerHTML = '<div class="no-data-message">No sensor data available yet.</div>';
+                return;
+            }
+
+            let html = '<table class="sensor-table">';
+            html += '<thead><tr><th>Date</th><th>Time</th><th>Sensor Value</th></tr></thead><tbody>';
+
+            data.forEach(item => {
+                const date = new Date(item.timestamp);
+                const dateStr = date.toLocaleDateString();
+                const timeStr = date.toLocaleTimeString();
+
+                html += `<tr>
+                        <td>${dateStr}</td>
+                        <td>${timeStr}</td>
+                        <td>${item.value}</td>
+                    </tr>`;
+            });
+
+            html += '</tbody></table>';
+
+            container.classList.remove('loading');
+            container.style.opacity = 0;
+            container.innerHTML = html;
+
+            setTimeout(() => {
+                container.style.transition = 'opacity 0.5s ease';
+                container.style.opacity = 1;
+            }, 50);
+        } catch (error) {
+            console.error('Error fetching sensor data:', error);
+            const container = document.getElementById('sensor-container');
+            container.classList.remove('loading');
+            container.innerHTML = '<div class="error-message">Unable to load sensor data. Please try again later.</div>';
+        }
+    }
+
+
+    // Music player management
+    class MusicController {
+        constructor() {
+            this.audioElements = document.querySelectorAll('audio');
+            this.currentTrack = null;
+            this.setupAudio();
+        }
+
+        setupAudio() {
+            // Convert NodeList to Array for easier handling
+            this.tracks = Array.from(this.audioElements);
+            
+            // Add event listeners to all audio elements
+            this.tracks.forEach((audio, index) => {
+                // Pause other tracks when one starts playing
+                audio.addEventListener('play', () => {
+                    this.currentTrack = index;
+                    this.tracks.forEach((otherAudio, otherIndex) => {
+                        if (otherIndex !== index && !otherAudio.paused) {
+                            otherAudio.pause();
+                        }
+                    });
+                });
+            });
+        }
+        
+        playPause() {
+            // If no track is currently active, start the first one
+            if (this.currentTrack === null) {
+                this.currentTrack = 0;
+                this.tracks[0].play();
+                return;
+            }
+            
+            const audio = this.tracks[this.currentTrack];
+            if (audio.paused) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
+        }
+        
+        next() {
+            if (this.currentTrack === null) {
+                this.currentTrack = 0;
+            } else {
+                this.currentTrack = (this.currentTrack + 1) % this.tracks.length;
+            }
+            
+            // Pause all tracks and play the new one
+            this.tracks.forEach(audio => audio.pause());
+            this.tracks[this.currentTrack].currentTime = 0;
+            this.tracks[this.currentTrack].play();
+        }
+        
+        previous() {
+            if (this.currentTrack === null) {
+                this.currentTrack = this.tracks.length - 1;
+            } else {
+                this.currentTrack = (this.currentTrack - 1 + this.tracks.length) % this.tracks.length;
+            }
+            
+            // Pause all tracks and play the new one
+            this.tracks.forEach(audio => audio.pause());
+            this.tracks[this.currentTrack].currentTime = 0;
+            this.tracks[this.currentTrack].play();
+        }
+        
+        volumeUp() {
+            if (this.currentTrack !== null) {
+                const audio = this.tracks[this.currentTrack];
+                audio.volume = Math.min(1.0, audio.volume + 0.1);
+                console.log(`Volume up: ${audio.volume.toFixed(1)}`);
+            }
+        }
+        
+        volumeDown() {
+            if (this.currentTrack !== null) {
+                const audio = this.tracks[this.currentTrack];
+                audio.volume = Math.max(0.0, audio.volume - 0.1);
+                console.log(`Volume down: ${audio.volume.toFixed(1)}`);
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchClockData();
+        fetchSensorData();
+        setInterval(() => { // Fixed typo: "set-interval" to "setInterval"
+            fetchClockData();
+            fetchSensorData();
+        }, 60000);
+
+        // Initialize music controller
+        const musicController = new MusicController();
+        
+        // Setup WebSocket connection
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+        
+        console.log(`Connecting to WebSocket at ${wsUrl}`);
+        const socket = new WebSocket(wsUrl);
+        
+        socket.onopen = () => {
+            console.log('WebSocket connection established');
+            document.getElementById('connection-status').textContent = 'Connected';
+            document.getElementById('connection-status').className = 'connected';
+        };
+        
+        socket.onclose = () => {
+            console.log('WebSocket connection closed');
+            document.getElementById('connection-status').textContent = 'Disconnected';
+            document.getElementById('connection-status').className = 'disconnected';
+            
+            // Attempt to reconnect after 5 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 5000);
+        };
+        
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+        
+        socket.onmessage = (event) => {
+            console.log('Received WebSocket message:', event.data);
+            try {
+                const message = JSON.parse(event.data);
+                
+                // Handle music control messages
+                if (message.type === 'music') {
+                    switch (message.action) {
+                        case 'play_pause':
+                            musicController.playPause();
+                            break;
+                        case 'next':
+                            musicController.next();
+                            break;
+                        case 'previous':
+                            musicController.previous();
+                            break;
+                        case 'volume_up':
+                            musicController.volumeUp();
+                            break;
+                        case 'volume_down':
+                            musicController.volumeDown();
+                            break;
+                    }
+                }
+            } catch (err) {
+                console.error('Error processing WebSocket message:', err);
+            }
+        };
+    });
+</script>
+</body>
+</html>
